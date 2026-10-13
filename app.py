@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("📚문서 변환 & PDF 분할 도구")
-st.caption("전공책/논문 분할부터 AI 입력용 마크다운(.md) 변환까지 한 곳에서 처리하세요.")
+st.caption("전공책/논문 분할부터 마크다운(.md) 변환까지 한 곳에서 처리하세요.")
 
 # 3개의 탭 구성
 tab1, tab2, tab3 = st.tabs([
