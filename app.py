@@ -2,6 +2,8 @@ import streamlit as st
 import tempfile
 import os
 import io
+import math
+import zipfile
 from pypdf import PdfReader, PdfWriter
 
 # 페이지 기본 설정
@@ -11,13 +13,30 @@ st.set_page_config(
     layout="centered"
 )
 
+# -------------------------------------------------------------
+# 에러 발생 시 안전하게 새로고침/초기화하는 함수
+# -------------------------------------------------------------
+def handle_error_with_refresh(err_msg: str, key_suffix: str = ""):
+    st.error(f"❌ 오류가 발생했습니다: {err_msg}")
+    st.info("파일 손상, 형식 불일치 또는 일시적 메모리 부족일 수 있습니다. 아래 버튼을 눌러 초기화해 보세요.")
+    if st.button("🔄 페이지 새로고침 및 초기화", key=f"btn_refresh_{key_suffix}"):
+        st.session_state.clear()
+        st.rerun()
+
 st.title("📚문서 변환 & PDF 분할 도구")
 st.caption("전공책/논문 분할부터 마크다운(.md) 변환까지 한 곳에서 처리하세요.")
+
+# 상단에 언제든 누를 수 있는 수동 초기화 버튼 (우측 상단 정렬)
+col_head, col_btn = st.columns([4, 1])
+with col_btn:
+    if st.button("🔄 전체 리셋", help="모든 작업과 업로드 상태를 초기화합니다."):
+        st.session_state.clear()
+        st.rerun()
 
 # 3개의 탭 구성
 tab1, tab2, tab3 = st.tabs([
     "⚡ 일반 문서 변환", 
-    "📑 논문/전공책 변환", 
+    "📑 논문/전공책 변환 (구조 보존)", 
     "✂️ PDF 페이지 분할"
 ])
 
@@ -26,7 +45,7 @@ tab1, tab2, tab3 = st.tabs([
 # -------------------------------------------------------------
 with tab1:
     st.subheader("일반 보고서 / 기획서 / 이미지")
-    st.info("단일 단락 문서, 표, 오피스 파일 등을 텍스트로 추출합니다.")
+    st.info("단일 단락 문서, 표, 오피스 파일 등을 1~3초 만에 텍스트로 빠르게 추출합니다.")
     
     file_general = st.file_uploader(
         "파일 업로드 (PDF, PNG, JPG, DOCX, XLSX)",
@@ -36,12 +55,13 @@ with tab1:
     
     if file_general is not None:
         file_ext = os.path.splitext(file_general.name)[1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
-            tmp_file.write(file_general.read())
-            tmp_path = tmp_file.name
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                tmp_file.write(file_general.read())
+                tmp_path = tmp_file.name
 
-        with st.spinner("마크다운 변환 중..."):
-            try:
+            with st.spinner("마크다운 변환 중..."):
                 from markitdown import MarkItDown
                 md = MarkItDown()
                 result = md.convert(tmp_path)
@@ -56,11 +76,11 @@ with tab1:
                     mime="text/markdown",
                     key="down_general"
                 )
-            except Exception as e:
-                st.error(f"변환 실패: {e}")
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
+        except Exception as e:
+            handle_error_with_refresh(str(e), "tab1")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
 # -------------------------------------------------------------
 # TAB 2: 논문 / 전공책 챕터 변환 (Docling - 레이아웃 보존)
@@ -76,12 +96,13 @@ with tab2:
     )
     
     if file_paper is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(file_paper.read())
-            tmp_path = tmp_file.name
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                tmp_file.write(file_paper.read())
+                tmp_path = tmp_file.name
 
-        with st.spinner("문서 구조 및 캡션 순서 정밀 분석 중 (약 20~40초 소요)..."):
-            try:
+            with st.spinner("문서 구조 및 캡션 순서 정밀 분석 중 ..."):
                 from docling.document_converter import DocumentConverter
                 converter = DocumentConverter()
                 result = converter.convert(tmp_path)
@@ -96,17 +117,17 @@ with tab2:
                     mime="text/markdown",
                     key="down_paper"
                 )
-            except Exception as e:
-                st.error(f"변환 실패: {e}")
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
+        except Exception as e:
+            handle_error_with_refresh(str(e), "tab2")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
 # -------------------------------------------------------------
-# TAB 3: PDF 페이지 분할 (직접 범위 지정 vs N분할)
+# TAB 3: PDF 페이지 분할 (직접 범위 지정 vs 전체 N분할)
 # -------------------------------------------------------------
 with tab3:
-    st.subheader("대용량 PDF / 전공책 분할")
+    st.subheader("대용량 PDF 분할")
     st.info("원하는 구간만 잘라내거나, 전체 PDF를 N개 파일로 균등 분할하여 ZIP으로 받습니다.")
     
     file_to_split = st.file_uploader(
@@ -122,16 +143,13 @@ with tab3:
             base_filename = os.path.splitext(file_to_split.name)[0]
             st.write(f"📖 **총 페이지 수:** `{total_pages}` 쪽")
             
-            # 분할 방식 선택 라디오 버튼
             split_mode = st.radio(
                 "분할 방식을 선택하세요",
                 ["📌 원하는 구간 지정 분할 (단일 파일)", "📦 전체 N등분 균등 분할 (ZIP 압축)"],
                 horizontal=True
             )
             
-            # ---------------------------------------------------------
-            # 모드 1: 원하는 구간 지정
-            # ---------------------------------------------------------
+            # 모드 1: 특정 구간 지정 분할
             if split_mode == "📌 원하는 구간 지정 분할 (단일 파일)":
                 col1, col2 = st.columns(2)
                 with col1:
@@ -163,9 +181,7 @@ with tab3:
                             mime="application/pdf"
                         )
             
-            # ---------------------------------------------------------
             # 모드 2: 전체 N등분 균등 분할
-            # ---------------------------------------------------------
             else:
                 n_parts = st.number_input(
                     "몇 개(N)의 파일로 나눌까요?", 
@@ -175,9 +191,6 @@ with tab3:
                     help="예: 500쪽 책을 5개로 나누면 약 100쪽씩 5개 파일로 생성됩니다."
                 )
                 
-                # 분할 미리보기 계산
-                import math
-                import zipfile
                 pages_per_part = math.ceil(total_pages / n_parts)
                 st.caption(f"💡 파일 1개당 약 **{pages_per_part}쪽** 내외로 총 **{n_parts}개**의 PDF가 생성됩니다.")
                 
@@ -214,7 +227,6 @@ with tab3:
                             file_name=zip_filename,
                             mime="application/zip"
                         )
-                        st.caption("💡 압축을 푼 뒤 필요한 챕터 파일을 바로 변환 탭에 넣어 사용하세요.")
                         
         except Exception as e:
-            st.error(f"PDF 처리 중 오류 발생: {e}")
+            handle_error_with_refresh(str(e), "tab3")
