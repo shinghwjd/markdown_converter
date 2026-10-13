@@ -1,4 +1,2 @@
 streamlit
-markitdown
 pymupdf
-pypdf
