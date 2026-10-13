@@ -5,7 +5,7 @@ import os
 
 st.set_page_config(page_title="AI 토큰 절약 마크다운 변환기", page_icon="📝", layout="centered")
 
-st.title("📄 AI용 마크다운 변환기")
+st.title("📄 마크다운 변환기")
 st.caption("PDF/이미지/문서를 마크다운으로 변환해 AI 토큰 소모를 최소화합니다.")
 
 # 파일 업로드 창
