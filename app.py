@@ -64,7 +64,7 @@ def extract_page_markdown(page):
 
 # ---------------- UI 화면 ----------------
 st.title("📑 논문 마크다운 변환기")
-st.caption("PDF 논문을 페이지별 마크다운으로 분할 변환하고, 프롬프트를 함께 제공합니다.")
+st.caption("PDF 논문을 마크다운으로 분할 변환하고, 프롬프트를 함께 제공합니다.")
 
 # 전체 리셋 버튼
 if st.button("🔄 화면 초기화"):
@@ -72,7 +72,7 @@ if st.button("🔄 화면 초기화"):
     st.rerun()
 
 # 💡 추천 AI 번역/해석 프롬프트 박스 (접이식 아코디언)
-with st.expander("📋 [추천] 수식 복원 & 한국어 번역 프롬프트 (클릭하여 복사)", expanded=True):
+with st.expander("📋 [추천] 프롬프트 (클릭하여 복사)", expanded=True):
     st.markdown("변환된 `.md` 파일을 AI(ChatGPT, Claude, Gemini 등)에 첨부할 때 **아래 프롬프트를 함께 복사해 입력**하세요:")
     # 우측 상단에 원클릭 복사 아이콘이 생성되는 code 블록
     st.code(PROMPT_TEMPLATE, language="markdown")
