@@ -7,7 +7,7 @@ import zipfile
 
 # 페이지 설정
 st.set_page_config(
-    page_title="논문 마크다운 변환기",
+    page_title=".md 변환기",
     page_icon="📑",
     layout="centered"
 )
