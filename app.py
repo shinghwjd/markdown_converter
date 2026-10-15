@@ -63,8 +63,8 @@ def extract_page_markdown(page):
     return "\n\n".join(page_md_lines)
 
 # ---------------- UI 화면 ----------------
-st.title("📑 논문 마크다운 변환기")
-st.caption("PDF 논문을 마크다운으로 분할 변환하고, 프롬프트를 함께 제공합니다.")
+st.title("📑 .md 변환기")
+st.caption("PDF를 마크다운으로 분할 변환하고, 프롬프트를 함께 제공합니다.")
 
 # 전체 리셋 버튼
 if st.button("🔄 화면 초기화"):
@@ -81,7 +81,7 @@ st.divider()
 
 # 파일 업로드
 uploaded_file = st.file_uploader(
-    "논문 PDF 파일을 업로드하세요", 
+    "PDF 파일을 업로드하세요", 
     type=["pdf"],
     key="paper_uploader"
 )
